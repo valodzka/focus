@@ -463,7 +463,7 @@ manually find and kill any existing focus.py process")
 
 
                 # a request for an ip for a domain
-                if qtype is request_types["A"]:
+                if qtype is request_types["A"] or qtype is request_types["AAAA"]:
                     # if we can visit it now, it might be either A) not on the blacklist
                     # or B) on the blacklist, but not blacklisted at this time (due to
                     # the schedule permitting access).  in both cases, we should
