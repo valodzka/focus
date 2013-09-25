@@ -385,10 +385,14 @@ if __name__ == "__main__":
 manually find and kill any existing focus.py process")
             exit(1)
 
-    with open(pid_file, "w") as f:
-        # Drop ownership of the pidfile
-        os.fchown(f.fileno(), get_unprivileged_uid(), -1)
-        f.write(str(os.getpid()))
+    try:
+        with open(pid_file, "w") as f:
+            # Drop ownership of the pidfile
+            os.fchown(f.fileno(), get_unprivileged_uid(), -1)
+            f.write(str(os.getpid()))
+    except IOError:
+        log.warning("Couldn't create a pidfile. Please run this script as root.")
+        exit(1)
     atexit.register(clean_up_pid)
 
     config.update(load_config(config_file))
