@@ -111,6 +111,7 @@ request_types = {
     "MX": 15,
     "CNAME": 5,
     "AAAA": 28,
+    "ANY" : 255
 }
 # this is used for looking up the request type for logging
 request_types_inv = dict([(v,k) for k,v in request_types.items()])
@@ -148,7 +149,7 @@ def parse_dns(packet):
 
 
 
-def build_blacklist_response(qid, domain, fail_ip, ttl):
+def build_blacklist_response(qid, domain, fail_ip, ttl, qtype):
     """ build a packet that directs our dns request to an ip that doesn't
     really belong to the domain...while saying we're authoritative """
 
@@ -173,15 +174,15 @@ def build_blacklist_response(qid, domain, fail_ip, ttl):
     # repeat question
     packet += "".join([create_pascal_string(chunk.encode("ascii")).decode("ascii") for chunk in domain.split(".")]).encode("ascii")
     packet += b"\x00"
-    packet += struct.pack("!2H", request_types["A"], 1)
+    packet += struct.pack("!2H", qtype, 1)
 
     # answer
     packet += b"\xc0" # name is a pointer
     packet += b"\x0c" # offset
-    packet += struct.pack("!2H", request_types["A"], 1)
+    packet += struct.pack("!2H", qtype, 1)
     packet += struct.pack("!I", ttl)
-    packet += struct.pack("!H", 4) # ip length
-    packet += socket.inet_aton(fail_ip)
+    packet += struct.pack("!H", 16 if fail_ip == "::1" else 4) # ip length
+    packet += socket.inet_pton(socket.AF_INET6 if fail_ip == "::1" else socket.AF_INET, fail_ip)
     return packet
 
 
@@ -483,14 +484,17 @@ manually find and kill any existing focus.py process")
 
                     # if we can't visit it now, direct it to the FAIL_IP
                     else:
-                        log.info("%s for %r (%s) is BLOCKED, pointing to %s", qtype_readable, domain, qid, config["fail_ip"])
-                        reply = build_blacklist_response(qid, domain, config["fail_ip"], config["ttl"])
+                        fail_ip = config["fail_ip"]
+                        if qtype is request_types["AAAA"]:
+                            fail_ip = "::1"
+                        log.info("%s for %r (%s) is BLOCKED, pointing to %s", qtype_readable, domain, qid, fail_ip)
+                        reply = build_blacklist_response(qid, domain, fail_ip, config["ttl"], qtype)
 
 
                 # all other types of requests..MX, CNAME, etc, just let the regular
                 # nameservers look those up, and don't adjust ttl
                 else:
-                    log.info("%s for %r (%s) is allowed", qtype_readable, domain, qid)
+                    log.info("%s (%d) for %r (%s) is allowed", qtype_readable, qtype, domain, qid)
                     fdns = ForwardedDNS(sender, nameservers[0], question)
                     readers.append(fdns)
                     continue

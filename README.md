@@ -97,3 +97,6 @@ FAQ
 
 - Q: How do I stop Focus?
 - A: Focus writes its process id to /var/run/focus.py.pid.  Kill the process using this process id.
+
+- Q: Chrome still opening some sites.
+- A: Try to open chrome://flags/ and set "asynchronous DNS client" to "Disabled"
